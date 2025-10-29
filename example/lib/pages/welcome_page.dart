@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:better_player_example/constants.dart';
+import 'package:better_player_example/pages/art_player_page.dart';
 import 'package:better_player_example/pages/auto_fullscreen_orientation_page.dart';
 import 'package:better_player_example/pages/basic_player_page.dart';
 import 'package:better_player_example/pages/cache_page.dart';
@@ -161,6 +162,9 @@ class _WelcomePageState extends State<WelcomePage> {
       }),
       _buildExampleElementWidget("DASH", () {
         _navigateToPage(DashPage());
+      }),
+      _buildExampleElementWidget("ArtPlayer", () {
+        _navigateToPage(ArtPlayerPage());
       }),
     ];
   }

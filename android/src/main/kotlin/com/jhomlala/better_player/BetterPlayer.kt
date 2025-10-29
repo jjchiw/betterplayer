@@ -58,7 +58,6 @@ import com.google.android.exoplayer2.audio.AudioAttributes
 import com.google.android.exoplayer2.drm.DrmSessionManagerProvider
 import com.google.android.exoplayer2.ext.mediasession.MediaSessionConnector
 import com.google.android.exoplayer2.trackselection.DefaultTrackSelector.SelectionOverride
-import com.google.android.exoplayer2.trackselection.TrackSelectionOverrides
 import com.google.android.exoplayer2.upstream.DataSource
 import com.google.android.exoplayer2.upstream.DefaultDataSource
 import com.google.android.exoplayer2.util.Util
@@ -403,32 +402,44 @@ internal class BetterPlayer(
             mediaItemBuilder.setCustomCacheKey(cacheKey)
         }
         val mediaItem = mediaItemBuilder.build()
-        var drmSessionManagerProvider: DrmSessionManagerProvider? = null
-        drmSessionManager?.let { drmSessionManager ->
-            drmSessionManagerProvider = DrmSessionManagerProvider { drmSessionManager }
-        }
         return when (type) {
-            C.TYPE_SS -> SsMediaSource.Factory(
-                DefaultSsChunkSource.Factory(mediaDataSourceFactory),
-                DefaultDataSource.Factory(context, mediaDataSourceFactory)
-            )
-                .setDrmSessionManagerProvider(drmSessionManagerProvider)
-                .createMediaSource(mediaItem)
-            C.TYPE_DASH -> DashMediaSource.Factory(
-                DefaultDashChunkSource.Factory(mediaDataSourceFactory),
-                DefaultDataSource.Factory(context, mediaDataSourceFactory)
-            )
-                .setDrmSessionManagerProvider(drmSessionManagerProvider)
-                .createMediaSource(mediaItem)
-            C.TYPE_HLS -> HlsMediaSource.Factory(mediaDataSourceFactory)
-                .setDrmSessionManagerProvider(drmSessionManagerProvider)
-                .createMediaSource(mediaItem)
-            C.TYPE_OTHER -> ProgressiveMediaSource.Factory(
-                mediaDataSourceFactory,
-                DefaultExtractorsFactory()
-            )
-                .setDrmSessionManagerProvider(drmSessionManagerProvider)
-                .createMediaSource(mediaItem)
+            C.TYPE_SS -> {
+                val factory = SsMediaSource.Factory(
+                    DefaultSsChunkSource.Factory(mediaDataSourceFactory),
+                    DefaultDataSource.Factory(context, mediaDataSourceFactory)
+                )
+                drmSessionManager?.let { drmManager ->
+                    factory.setDrmSessionManagerProvider(DrmSessionManagerProvider { drmManager })
+                }
+                factory.createMediaSource(mediaItem)
+            }
+            C.TYPE_DASH -> {
+                val factory = DashMediaSource.Factory(
+                    DefaultDashChunkSource.Factory(mediaDataSourceFactory),
+                    DefaultDataSource.Factory(context, mediaDataSourceFactory)
+                )
+                drmSessionManager?.let { drmManager ->
+                    factory.setDrmSessionManagerProvider(DrmSessionManagerProvider { drmManager })
+                }
+                factory.createMediaSource(mediaItem)
+            }
+            C.TYPE_HLS -> {
+                val factory = HlsMediaSource.Factory(mediaDataSourceFactory)
+                drmSessionManager?.let { drmManager ->
+                    factory.setDrmSessionManagerProvider(DrmSessionManagerProvider { drmManager })
+                }
+                factory.createMediaSource(mediaItem)
+            }
+            C.TYPE_OTHER -> {
+                val factory = ProgressiveMediaSource.Factory(
+                    mediaDataSourceFactory,
+                    DefaultExtractorsFactory()
+                )
+                drmSessionManager?.let { drmManager ->
+                    factory.setDrmSessionManagerProvider(DrmSessionManagerProvider { drmManager })
+                }
+                factory.createMediaSource(mediaItem)
+            }
             else -> {
                 throw IllegalStateException("Unsupported type: $type")
             }
@@ -707,14 +718,10 @@ internal class BetterPlayer(
         if (mappedTrackInfo != null) {
             val builder = trackSelector.parameters.buildUpon()
                 .setRendererDisabled(rendererIndex, false)
-                .setTrackSelectionOverrides(
-                    TrackSelectionOverrides.Builder().addOverride(
-                        TrackSelectionOverrides.TrackSelectionOverride(
-                            mappedTrackInfo.getTrackGroups(
-                                rendererIndex
-                            ).get(groupIndex)
-                        )
-                    ).build()
+                .setSelectionOverride(
+                    rendererIndex,
+                    mappedTrackInfo.getTrackGroups(rendererIndex),
+                    SelectionOverride(groupIndex, groupElementIndex)
                 )
 
             trackSelector.setParameters(builder)
